@@ -7,18 +7,29 @@
 #include <SDL_opengl.h>
 
 #include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+typedef uint32_t u32;
+
+
 using std::vector;
 
-int screen_w = 1800;
-int screen_h = 950;
+int screen_w = 1920;
+int screen_h = 1080;
 
 bool quit = false;
 
 SDL_Event event;
 
 const int POLE_NUMBER = 500;
+int n_poles = 0;
 
 class Pole;
+
+Pole** user_poles;
+u32* pole_data_buffer;
 
 void init();
 void reshape();
