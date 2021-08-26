@@ -5,8 +5,6 @@
 
 #include <SDL.h>
 #include <SDL_opengl.h>
-#include <audiere.h>
-using namespace audiere;
 
 #include <vector>
 using std::vector;
@@ -23,7 +21,7 @@ const int POLE_NUMBER = 500;
 class Pole;
 
 void init();
-void reshape(int, int);
+void reshape();
 void display();
 void drawAndInputHandle();
 void shuffle();
@@ -32,12 +30,11 @@ void quickSort(Pole [], int);
 void quickSort(Pole [], int, int, int);
 int partition(Pole [], int, int, int);
 
-AudioDevicePtr device(OpenDevice());
-OutputStreamPtr stream(OpenSound(device, "sound.wav", false));
-void playSound(int);
-
 int maxHeight = 0;
 int minHeight = 9999999;
+
+SDL_Window *screen;
+SDL_GLContext ctx;
 
 class Pole {
 	private:
@@ -140,9 +137,16 @@ void drawAndInputHandle() {
 				else if (event.key.keysym.sym == SDLK_SPACE)
 					shuffle();
 				break;
-			case SDL_VIDEORESIZE:
-				reshape(event.resize.w, event.resize.h);
-				break;
+				case SDL_WINDOWEVENT:
+                {
+                    if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+                    {
+                        screen_w = event.window.data1;
+                        screen_h = event.window.data2;
+                        reshape();
+                    }
+                }
+
 			default:
 				break;
 		}
@@ -154,7 +158,7 @@ void drawAndInputHandle() {
 	for (int i = 0; i < POLE_NUMBER; i++)
 		pole[i].drawPole();
 
-	SDL_GL_SwapBuffers();
+	SDL_GL_SwapWindow(screen);
 }
 
 void shuffle() {
@@ -163,8 +167,6 @@ void shuffle() {
 		pole[i].setStandardColor();
 	}
 
-	stream->reset();
-	stream->play();
 	quickSort(pole, POLE_NUMBER);
 }
 
@@ -205,10 +207,10 @@ int partition(Pole pole[], int arrayLength, int first, int last) {
 			int temp = pole[high].getHeight();
 			pole[high].setHeight(pole[low].getHeight());
 			pole[high].setActionColor();
-			playSound(pole[high].getHeight());
+			// playSound(pole[high].getHeight());
 			pole[low].setHeight(temp);
 			pole[low].setActionColor();
-			playSound(pole[low].getHeight());
+			// playSound(pole[low].getHeight());
 			drawAndInputHandle();
 			pole[high].setStandardColor();
 			pole[low].setStandardColor();
@@ -221,10 +223,10 @@ int partition(Pole pole[], int arrayLength, int first, int last) {
 	if (pivot > pole[high].getHeight()) {
 		pole[first].setHeight(pole[high].getHeight());
 		pole[first].setActionColor();
-		playSound(pole[first].getHeight());
+		// playSound(pole[first].getHeight());
 		pole[high].setHeight(pivot);
 		pole[high].setActionColor();
-		playSound(pole[high].getHeight());
+		// playSound(pole[high].getHeight());
 		drawAndInputHandle();
 		pole[first].setStandardColor();
 		pole[high].setStandardColor();
@@ -235,33 +237,39 @@ int partition(Pole pole[], int arrayLength, int first, int last) {
 	}
 }
 
-void playSound(int poleHeight) {
-	stream->reset();
-	stream->setPitchShift((static_cast<float>(poleHeight)/(maxHeight-minHeight)*1.7f)+0.2f);
-	stream->play();
-}
-
 void init() {
 	SDL_Init(SDL_INIT_EVERYTHING);
-	SDL_WM_SetCaption("20.01.12 Quicksort", 0);
-	SDL_putenv("SDL_VIDEO_CENTERED=center");
-	SDL_ShowCursor(0);
+	//SDL_WM_SetCaption("20.01.12 Quicksort", 0);
+	//SDL_putenv("SDL_VIDEO_CENTERED=center");
+	//SDL_ShowCursor(0);
 
-	reshape(screen_w, screen_h);
+    SDL_Rect r;
+    if (SDL_GetDisplayBounds(0, &r) != 0) {
+        SDL_LogError(0, "SDL_GetDisplayBounds failed: %s", SDL_GetError());
+    }
+    else
+        SDL_Log("width: %d, height: %d\n", r.w, r.h);
 
-	stream->setVolume(0.3f);
+    if (r.w && r.h)
+    {
+        screen_w = r.w;
+        screen_h = r.h;
+    }
 
-	stream->play();
 
-	glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+    screen = SDL_CreateWindow("TheSoundOfQuicksort",
+                          SDL_WINDOWPOS_UNDEFINED,
+                          SDL_WINDOWPOS_UNDEFINED,
+                          screen_w, screen_h,
+                          SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
+    ctx = SDL_GL_CreateContext(screen);
+	reshape();
+
+	glClearColor(0.8f, 0.5f, 0.5f, 0.0f);
 }
 
-void reshape(int screenW, int screenH) {
-	screen_w = screenW;
-	screen_h = screenH;
-
-	SDL_SetVideoMode(screenW, screenH, 32, SDL_OPENGL | SDL_RESIZABLE);
-	glViewport(0, 0, screenW, screenH);
+void reshape() {
+	glViewport(0, 0, screen_w, screen_h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0, screen_w, screen_h, 0.0, -1.0, 1.0);
@@ -275,7 +283,7 @@ void display() {
 	for (int i = 0; i < POLE_NUMBER; i++)
 		pole[i].drawPole();
 
-	SDL_GL_SwapBuffers();
+	SDL_GL_SwapWindow(screen);
 }
 
 int main(int argc, char** argv) {
@@ -295,9 +303,16 @@ int main(int argc, char** argv) {
 					else if (event.key.keysym.sym == SDLK_SPACE)
 						shuffle();
 					break;
-				case SDL_VIDEORESIZE:
-					reshape(event.resize.w, event.resize.h);
-					break;
+				case SDL_WINDOWEVENT:
+                {
+                    if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+                    {
+                        screen_w = event.window.data1;
+                        screen_h = event.window.data2;
+                        reshape();
+                    }
+                }
+				break;
 				default:
 					break;
 			}
