@@ -291,8 +291,8 @@ void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
 	glLoadIdentity();
 
-	for (int i = 0; i < n_poles; i++)
-		poles[i].drawPole();
+	for (int i = 0; i < POLE_NUMBER; i++)
+		pole[i].drawPole();
 
 	SDL_GL_SwapWindow(screen);
 }
@@ -320,7 +320,7 @@ void readPoles(char* filename)
 
     for(int i = 0; i < count; i++)
     {
-        user_poles[i] = new Pole(pole_data_buffer[i]);
+        // user_poles[i] = new Pole(pole_data_buffer[i]);
     }
 
     printf("n_poles: %d\n", n_poles);
@@ -330,9 +330,9 @@ void readPoles(char* filename)
 int main(int argc, char** argv) {
 	init();
     // has to be done after init. pole constructor needs the screen size
-    readPoles(argv[1]);
+    // readPoles(argv[1]);
 
-	quickSort(poles, sizeof(poles)/sizeof(poles[0]));
+	quickSort(pole, sizeof(pole)/sizeof(pole[0]));
 
 	while (!quit) {
 		while (SDL_PollEvent(&event)) {
