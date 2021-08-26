@@ -291,16 +291,48 @@ void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
 	glLoadIdentity();
 
-	for (int i = 0; i < POLE_NUMBER; i++)
-		pole[i].drawPole();
+	for (int i = 0; i < n_poles; i++)
+		poles[i].drawPole();
 
 	SDL_GL_SwapWindow(screen);
 }
 
+
+#define cast(T) (T)
+#define MAX_COUNT 300
+void readPoles(char* filename)
+{
+    auto f = fopen(filename, "rb");
+    fseek(f, 0, SEEK_END);
+    auto length = ftell(f);
+    pole_data_buffer = cast(u32*) malloc(length);
+    auto count = length / sizeof(u32);
+    // clamp count
+    // count = (count < MAX_COUNT ? count : MAX_COUNT);
+
+    fseek(f, 0, SEEK_SET);
+    fread(pole_data_buffer, sizeof(u32), count, f);
+    fclose(f);
+
+    n_poles = count;
+    // n poles has to be set before calling the ctor
+    user_poles = cast(Pole**) malloc(sizeof(Pole*) * count);
+
+    for(int i = 0; i < count; i++)
+    {
+        user_poles[i] = new Pole(pole_data_buffer[i]);
+    }
+
+    printf("n_poles: %d\n", n_poles);
+
+}
+
 int main(int argc, char** argv) {
 	init();
+    // has to be done after init. pole constructor needs the screen size
+    readPoles(argv[1]);
 
-	quickSort(pole, POLE_NUMBER);
+	quickSort(poles, sizeof(poles)/sizeof(poles[0]));
 
 	while (!quit) {
 		while (SDL_PollEvent(&event)) {
