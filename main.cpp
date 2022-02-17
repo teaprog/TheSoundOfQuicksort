@@ -2,20 +2,23 @@
 * 20.01.12 Quicksort
 * Author: teaprog
 */
-
-#include <SDL.h>
-#include <SDL_opengl.h>
+extern "C" void usleep(int x);
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 #include <stdint.h>
+#include <assert.h>
 typedef uint32_t u32;
 
 int screen_w = 1680;
 int screen_h = 1050;
+#define BG_COLOR 0.1f, 0.0f, 0.1f, 0.0f
+//#define BG_COLOR 0.8f, 0.5f, 0.5f, 0.0f
 
 bool quit = false;
 
 SDL_Event event;
 
-const int POLE_NUMBER = 256;
+const int POLE_NUMBER = 64;
 
 class Pole;
 
@@ -26,7 +29,11 @@ void init();
 void reshape();
 void display();
 void drawAndInputHandle();
-void shuffle();
+void start_new_sort(int);
+
+void mergeSort(Pole[], int);
+void mergeSort(Pole[], int, int, int);
+void merge(Pole[], int, int, int);
 
 void quickSort(Pole [], int);
 void quickSort(Pole [], int, int, int);
@@ -37,6 +44,10 @@ int minHeight = 9999999;
 
 SDL_Window *screen;
 SDL_GLContext ctx;
+int n_poles = POLE_NUMBER;
+
+int reads;
+int writes;
 
 class Pole {
 //	private:
@@ -65,12 +76,12 @@ class Pole {
 		}
 
 		void setStandardColor() {
-			colorR1 = 0.0f;
-			colorG1 = 0.3f;
-			colorB1 = 0.0f;
+			colorR1 = 0.6f;
+			colorG1 = 0.6f;
+			colorB1 = 0.6f;
 
-			colorR2 = 0.0f;
-			colorG2 = 0.0f;
+			colorR2 = 1.0f;
+			colorG2 = 1.0f;
 			colorB2 = 1.0f;
 		}
 
@@ -83,6 +94,17 @@ class Pole {
 			colorG2 = 0.0f;
 			colorB2 = 0.0f;
 		}
+
+        void setMarkColor()
+        {
+ 			colorR1 = 0.1f;
+			colorG1 = 0.1f;
+			colorB1 = 0.6f;
+
+			colorR2 = 0.1f;
+			colorG2 = 0.1f;
+			colorB2 = 0.7f;
+       }
 
 		void setFinishedColor() {
 			colorR1 = 0.0f;
@@ -104,10 +126,12 @@ class Pole {
 		}
 
 		void setHeight(int height) {
+            writes++;
 			this->height = height;
 		}
 
 		int getHeight() {
+            reads++;
 			return height;
 		}
 
@@ -160,7 +184,9 @@ void drawAndInputHandle() {
 					return;
 				}
 				else if (event.key.keysym.sym == SDLK_SPACE)
-					shuffle();
+					start_new_sort(0);
+				else if (event.key.keysym.sym == SDLK_RETURN)
+                    start_new_sort(1);
 				break;
 				case SDL_WINDOWEVENT:
                 {
@@ -186,17 +212,20 @@ void drawAndInputHandle() {
     }
 
     draw_poles();
-
-	SDL_GL_SwapWindow(screen);
+    usleep(80000);
+    
+    SDL_GL_SwapWindow(screen);
 }
 
-void shuffle() {
-	for (int i = 0; i < POLE_NUMBER; i++) {
+void start_new_sort(int sort_algo) {
+	for (int i = 0; i < n_poles; i++) {
 		pole[i].changeHeight();
 		pole[i].setStandardColor();
 	}
-
-	quickSort(pole, POLE_NUMBER);
+    if (sort_algo)
+        mergeSort(pole, n_poles);
+    else
+	    quickSort(pole, n_poles);
 }
 
 void quickSort(Pole pole[], int arrayLength) {
@@ -218,6 +247,96 @@ void quickSort(Pole pole[], int arrayLength, int first, int last) {
 	}
 }
 
+void swap_and_draw(Pole poles[], int x, int y) {
+    assert(x != y);
+    const int x_height = pole[x].getHeight();
+    const int y_height = pole[y].getHeight();
+    
+    poles[x].setHeight(y_height);
+    poles[x].setActionColor();
+    // playSound(pole[high].getHeight());
+    poles[y].setHeight(x_height);
+    poles[y].setActionColor();
+    drawAndInputHandle();
+    poles[x].setStandardColor();
+    poles[y].setStandardColor();
+}
+
+void mark_and_draw(Pole poles[], int x, int y) {
+    assert(x != y);    
+    poles[x].setMarkColor();
+    poles[y].setMarkColor();
+    
+    drawAndInputHandle();
+    
+    poles[x].setStandardColor();
+    poles[y].setStandardColor();
+}
+
+
+void mergeSort(Pole poles[], int arrayLength) {
+    int currentStepSize = 2;
+    int sorted_entries = 0;
+    for(;;)
+    {
+        if (quit)
+            return ;
+
+        for(int i = 0;
+            i < arrayLength;
+            i += currentStepSize)
+        {
+            if (quit)
+                return ;
+            for(int j = i + 1;
+                j < i + currentStepSize;
+                j++)
+            {
+                int x = i;
+                int y = j;
+                
+                int x_height = pole[x].getHeight();
+                int y_height = pole[y].getHeight();
+                if (x_height > y_height)
+                    swap_and_draw(poles, x, y);
+                else
+                {
+                    sorted_entries++;
+                    mark_and_draw(poles, x, y);
+                }
+            }
+            // sort of current_group done
+            // now for the merge
+            {
+                merge(poles, i, i + (currentStepSize * 2), currentStepSize);
+            }
+            drawAndInputHandle();
+        }
+        currentStepSize *= 2;
+        if (sorted_entries == arrayLength - 1) break;
+    }
+}
+
+void merge(Pole poles[], int start, int end, int stepSize) {
+    int n1 = start;
+    int n2 = start + stepSize;
+    int a_height = poles[n1].getHeight();
+    int b_height = poles[n2].getHeight();
+    while(n2 < end && n1 < stepSize)
+    {
+        if (a_height > b_height)
+        {
+            swap_and_draw(poles, n1, n2);
+            n2++;
+        }
+        else
+        {
+            mark_and_draw(poles, n1, n2);
+            n1++;
+        }
+    }
+}
+
 int partition(Pole pole[], int arrayLength, int first, int last) {
 	int pivot = pole[first].getHeight();
 	int low = first+1;
@@ -233,16 +352,7 @@ int partition(Pole pole[], int arrayLength, int first, int last) {
 			high--;
 
 		if (high > low) {
-			int temp = pole[high].getHeight();
-			pole[high].setHeight(pole[low].getHeight());
-			pole[high].setActionColor();
-			// playSound(pole[high].getHeight());
-			pole[low].setHeight(temp);
-			pole[low].setActionColor();
-			// playSound(pole[low].getHeight());
-			drawAndInputHandle();
-			pole[high].setStandardColor();
-			pole[low].setStandardColor();
+            swap_and_draw(pole, high, low);
 		}
 	}
 
@@ -294,7 +404,7 @@ void init() {
     ctx = SDL_GL_CreateContext(screen);
 	reshape();
 
-	glClearColor(0.8f, 0.5f, 0.5f, 0.0f);
+	glClearColor(BG_COLOR);
 }
 
 void reshape() {
@@ -362,7 +472,9 @@ int main(int argc, char** argv) {
 					if (event.key.keysym.sym == SDLK_ESCAPE)
 						quit = true;
 					else if (event.key.keysym.sym == SDLK_SPACE)
-						shuffle();
+						start_new_sort(0);
+					else if (event.key.keysym.sym == SDLK_RETURN)
+                        start_new_sort(1);
 					break;
 				case SDL_WINDOWEVENT:
                 {
