@@ -5,26 +5,17 @@
 
 #include <SDL.h>
 #include <SDL_opengl.h>
-
-#include <vector>
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
-
 typedef uint32_t u32;
 
-
-using std::vector;
-
-int screen_w = 1920;
-int screen_h = 1080;
+int screen_w = 1680;
+int screen_h = 1050;
 
 bool quit = false;
 
 SDL_Event event;
 
-const int POLE_NUMBER = 500;
-int n_poles = 0;
+const int POLE_NUMBER = 256;
 
 class Pole;
 
@@ -48,7 +39,8 @@ SDL_Window *screen;
 SDL_GLContext ctx;
 
 class Pole {
-	private:
+//	private:
+	public:
 		GLfloat xPos;
 		GLfloat yPos;
 		int height;
@@ -58,7 +50,7 @@ class Pole {
 		GLfloat colorR2, colorG2, colorB2;
 
 		static int poleCounter;
-	public:
+
 		Pole() {
 			GLfloat spaceBetween = 0.0f;
 			width = (screen_w - 20.0f - POLE_NUMBER * spaceBetween) / (POLE_NUMBER);
@@ -133,6 +125,28 @@ class Pole {
 
 int Pole::poleCounter = 0;
 
+void draw_poles()
+{
+	glBegin(GL_TRIANGLES);
+
+	for (int i = 0; i < POLE_NUMBER; i++)
+    {
+        auto p = pole[i];
+        glColor3f(p.colorR2, p.colorG2, p.colorB2);
+        glVertex2f(p.xPos, p.yPos);
+        glColor3f(p.colorR2, p.colorG2, p.colorB2);//      c  
+        glVertex2f(p.xPos + p.width, p.yPos);
+        glVertex2f(p.xPos, p.yPos - p.height);//       | /
+
+        glVertex2f(p.xPos + p.width, p.yPos);
+        glColor3f(p.colorR1, p.colorG1, p.colorB1);
+        glVertex2f(p.xPos + p.width,  p.yPos - p.height);
+        glVertex2f(p.xPos, p.yPos - p.height);
+    }
+
+    glEnd();
+}
+
 void drawAndInputHandle() {
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
@@ -167,7 +181,11 @@ void drawAndInputHandle() {
 	glLoadIdentity();
 
 	for (int i = 0; i < POLE_NUMBER; i++)
-		pole[i].drawPole();
+    {
+		//pole[i].drawPole();
+    }
+
+    draw_poles();
 
 	SDL_GL_SwapWindow(screen);
 }
@@ -249,7 +267,7 @@ int partition(Pole pole[], int arrayLength, int first, int last) {
 }
 
 void init() {
-	SDL_Init(SDL_INIT_EVERYTHING);
+	SDL_Init(SDL_INIT_VIDEO);
 	//SDL_WM_SetCaption("20.01.12 Quicksort", 0);
 	//SDL_putenv("SDL_VIDEO_CENTERED=center");
 	//SDL_ShowCursor(0);
@@ -272,7 +290,7 @@ void init() {
                           SDL_WINDOWPOS_UNDEFINED,
                           SDL_WINDOWPOS_UNDEFINED,
                           screen_w, screen_h,
-                          SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
+                          SDL_WINDOW_OPENGL /*| SDL_WINDOW_FULLSCREEN*/);
     ctx = SDL_GL_CreateContext(screen);
 	reshape();
 
@@ -297,7 +315,7 @@ void display() {
 	SDL_GL_SwapWindow(screen);
 }
 
-
+/*
 #define cast(T) (T)
 #define MAX_COUNT 300
 void readPoles(char* filename)
@@ -326,7 +344,7 @@ void readPoles(char* filename)
     printf("n_poles: %d\n", n_poles);
 
 }
-
+*/
 int main(int argc, char** argv) {
 	init();
     // has to be done after init. pole constructor needs the screen size
