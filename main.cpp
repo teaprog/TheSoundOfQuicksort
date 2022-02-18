@@ -18,7 +18,7 @@ bool quit = false;
 
 SDL_Event event;
 
-const int POLE_NUMBER = 64;
+const int POLE_NUMBER = 128;
 
 class Pole;
 
@@ -48,6 +48,60 @@ int n_poles = POLE_NUMBER;
 
 int reads;
 int writes;
+typedef uint8_t bits2;
+typedef uint32_t bits16x2;
+
+struct SortArray
+{
+    float* heights;
+    bits16x2* marks;
+    int* values;
+    uint32_t n_values;
+};
+
+uint32_t Align16(uint32_t v)
+{
+    return (v + 15) & ~0xF;
+}
+
+SortArray* SortArray_New(uint32_t n_values)
+{
+    SortArray* result;
+
+    uint8_t* ptr =
+        (uint8_t*) malloc(
+            Align16(sizeof(SortArray))
+            + Align16(sizeof(float) * n_values)
+            + Align16(n_values / 16)
+            + Align16((sizeof(int) * n_values))
+    );
+
+    result = (SortArray*)ptr;
+
+    result->heights = (float*) (ptr + Align16(sizeof(SortArray)));
+    result->marks = (uint32_t*) (((uint8_t*) result->heights) + Align16(sizeof(int) * n_values));
+    result->values =  (int*) (((uint8_t*) result->marks) + Align16(n_values / 16));
+
+    return result;
+}
+
+bits2 SortArray_getMark(SortArray* self, uint32_t idx)
+{
+    uint32_t array_idx = idx >> 4;
+    uint32_t bit_idx = idx & 0xF;
+    return (self->marks[array_idx] >> (bit_idx << 1)) & 0x3;
+}
+
+void SortArray_setMark(SortArray* self, uint32_t idx, bits2 v)
+{
+    uint32_t array_idx = idx >> 4;
+    uint32_t bit_idx = idx & 0xF;
+    uint32_t mask = (
+         1 << (bit_idx + 1) |
+         1 << (bit_idx + 0)
+    );
+    self->marks[array_idx] = (self->marks[array_idx] & ~mask) | (v << (bit_idx << 1));
+}
 
 class Pole {
 //	private:
@@ -63,7 +117,7 @@ class Pole {
 		static int poleCounter;
 
 		Pole() {
-			GLfloat spaceBetween = 0.0f;
+			GLfloat spaceBetween = 0.7f;
 			width = (screen_w - 20.0f - POLE_NUMBER * spaceBetween) / (POLE_NUMBER);
 			changeHeight();
 
@@ -116,13 +170,16 @@ class Pole {
 			colorB2 = 0.0f;
 		}
 
-		void changeHeight() {
-			height = rand() % (screen_h - 200);
-
-			if (height > maxHeight)
+        void setInitialHeight(int h) {
+            height = h;
+            if (height > maxHeight)
 				maxHeight = height;
 			if (height < minHeight)
 				minHeight = height;
+        }
+
+		void changeHeight() {
+			setInitialHeight(rand() % (screen_h - 200));
 		}
 
 		void setHeight(int height) {
@@ -158,7 +215,7 @@ void draw_poles()
         auto p = pole[i];
         glColor3f(p.colorR2, p.colorG2, p.colorB2);
         glVertex2f(p.xPos, p.yPos);
-        glColor3f(p.colorR2, p.colorG2, p.colorB2);//      c  
+        glColor3f(p.colorR2, p.colorG2, p.colorB2);//      c
         glVertex2f(p.xPos + p.width, p.yPos);
         glVertex2f(p.xPos, p.yPos - p.height);//       | /
 
@@ -212,14 +269,15 @@ void drawAndInputHandle() {
     }
 
     draw_poles();
-    usleep(80000);
-    
+    usleep(120000);
+
     SDL_GL_SwapWindow(screen);
 }
 
 void start_new_sort(int sort_algo) {
 	for (int i = 0; i < n_poles; i++) {
-		pole[i].changeHeight();
+		//pole[i].changeHeight();
+        pole[i].setInitialHeight((n_poles - i) * 30);
 		pole[i].setStandardColor();
 	}
     if (sort_algo)
@@ -251,7 +309,7 @@ void swap_and_draw(Pole poles[], int x, int y) {
     assert(x != y);
     const int x_height = pole[x].getHeight();
     const int y_height = pole[y].getHeight();
-    
+
     poles[x].setHeight(y_height);
     poles[x].setActionColor();
     // playSound(pole[high].getHeight());
@@ -263,12 +321,12 @@ void swap_and_draw(Pole poles[], int x, int y) {
 }
 
 void mark_and_draw(Pole poles[], int x, int y) {
-    assert(x != y);    
+    assert(x != y);
     poles[x].setMarkColor();
     poles[y].setMarkColor();
-    
+
     drawAndInputHandle();
-    
+
     poles[x].setStandardColor();
     poles[y].setStandardColor();
 }
@@ -294,11 +352,13 @@ void mergeSort(Pole poles[], int arrayLength) {
             {
                 int x = i;
                 int y = j;
-                
+
                 int x_height = pole[x].getHeight();
                 int y_height = pole[y].getHeight();
                 if (x_height > y_height)
+                {
                     swap_and_draw(poles, x, y);
+                }
                 else
                 {
                     sorted_entries++;
@@ -320,20 +380,25 @@ void mergeSort(Pole poles[], int arrayLength) {
 void merge(Pole poles[], int start, int end, int stepSize) {
     int n1 = start;
     int n2 = start + stepSize;
-    int a_height = poles[n1].getHeight();
-    int b_height = poles[n2].getHeight();
     while(n2 < end && n1 < stepSize)
     {
+        int a_height = poles[n1].getHeight();
+        int b_height = poles[n2].getHeight();
+
         if (a_height > b_height)
         {
             swap_and_draw(poles, n1, n2);
-            n2++;
+            n1++;
         }
         else
         {
             mark_and_draw(poles, n1, n2);
-            n1++;
+            n2++;
         }
+    }
+
+    if (n2 < end)
+    {
     }
 }
 
